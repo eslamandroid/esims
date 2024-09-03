@@ -31,31 +31,37 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.eaapps.esims.ui.theme.EsimsTheme
 
 
-private const val TEST_SIM_PROFILE = "LPA:1\$smdp.io\$57-25TL52-3YI05T"
+private const val TEST_SIM_PROFILE = "LPA:1\$smdp.io\$57-261HY0-Y19OZV"
 
-private const val DOWNLOAD_ACTION = "download_subscription"
 private const val START_RESOLUTION_ACTION = "start_resolution_action"
 private const val BROADCAST_PERMISSION = "com.eaapps.esims.lpa.permission.BROADCAST"
 
 
 class MainActivity : ComponentActivity() {
     private var manager: EuiccManager? = null
-    private lateinit var lPAActivityLauncher: ActivityResultLauncher<Intent>
 
     private val eSimBroadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -151,18 +157,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        lPAActivityLauncher = registerForActivityResult(
-            ActivityResultContracts.StartActivityForResult()
-        ) { result ->
-            if (result.resultCode == Activity.RESULT_OK) {
-                // Handle the result from the LPA app, such as confirming eSIM activation
-                val data: Intent? = result.data
-                // Process the data if needed
-            } else {
-                // Handle any errors or cancellations
-                Toast.makeText(this, "eSIM activation was not successful", Toast.LENGTH_SHORT).show()
-            }
-        }
+
         manager = getSystemService(EUICC_SERVICE) as EuiccManager
 
         enableEdgeToEdge()
@@ -173,13 +168,7 @@ class MainActivity : ComponentActivity() {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     EsimView(
                         context = context,
-                        modifier = Modifier.padding(innerPadding),
-                        downloadSim = {
-                            downloadTestProfile(it)
-                        },
-                        openQr = {
-                            openQR()
-                        }
+                        modifier = Modifier.padding(innerPadding)
                     )
                 }
             }
@@ -192,7 +181,7 @@ class MainActivity : ComponentActivity() {
             this@MainActivity,
             eSimBroadcastReceiver,
             IntentFilter(DOWNLOAD_ACTION),
-            BROADCAST_PERMISSION,
+            null,
             null,
             ContextCompat.RECEIVER_EXPORTED
         )
@@ -200,7 +189,7 @@ class MainActivity : ComponentActivity() {
             this@MainActivity,
             resolutionReceiver,
             IntentFilter(START_RESOLUTION_ACTION),
-            BROADCAST_PERMISSION,
+            null,
             null,
             ContextCompat.RECEIVER_EXPORTED
         )
@@ -212,153 +201,66 @@ class MainActivity : ComponentActivity() {
         unregisterReceiver(resolutionReceiver)
     }
 
-    private fun downloadTestProfile(sub: String) {
-        // Check if e-sim is supported by the device note that emulators are not supported.
-        kotlin.runCatching {
-            manager?.let {
-                if (it.isEnabled) {
-                    val info = it.euiccInfo
-                    val osVer = info?.osVersion
-//                   showToastMessage("osVer $osVer")
-
-                    val subscription =
-                        DownloadableSubscription.forActivationCode(sub)
-                    val callbackIntent = PendingIntent.getBroadcast(
-                        baseContext,
-                        0 /* requestCode */,
-                        Intent(DOWNLOAD_ACTION).apply {
-                            setPackage(packageName)
-                        },
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                    )
-                    it.downloadSubscription(subscription, true, callbackIntent)
-                } else {
-                    showToastMessage("eSIM is not supported on this device")
-                }
-            } ?: showToastMessage("eSIM is not supported on this device")
-        }.getOrElse {
-            showToastMessage("error:${it.message ?: "error"}")
-        }
-    }
-
-    private fun openQR() {
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                val intent =
-                    Intent(EuiccManager.ACTION_START_EUICC_ACTIVATION).apply {
-                        putExtra(EuiccManager.EXTRA_USE_QR_SCANNER, false)
-                    }
-                lPAActivityLauncher.launch(intent)
-            } else {
-                Toast.makeText(this, "not support for current android version", Toast.LENGTH_SHORT).show()
-
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            Toast.makeText(this, e.message, Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    private fun showToastMessage(message: String) {
-        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
-    }
-
 }
 
 @SuppressLint("ServiceCast")
 @Composable
-fun EsimView(context: Context, modifier: Modifier, downloadSim: (String) -> Unit = {}, openQr: () -> Unit = {}) {
-
+fun EsimView(context: Context, modifier: Modifier) {
     val manager = EsimManager(context)
+    var esimList by remember {
+        mutableStateOf("")
+    }
+
     Column(verticalArrangement = Arrangement.Center, horizontalAlignment = CenterHorizontally, modifier = modifier.fillMaxSize()) {
-
         Button(onClick = {
-            if (ActivityCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(context as Activity, arrayOf(Manifest.permission.READ_PHONE_STATE), 200)
-            }
-        }) {
-            Text(text = "Check Permission available")
+            Toast.makeText(
+                context,
+                "isAvailable: ${if (manager.isAvailable()) "Your device supports E-SIM" else "your device doesn't support E-SIM"}",
+                Toast.LENGTH_SHORT
+            ).show()
+        }, modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp)) {
+            Text(text = "Check E-SIM support")
         }
-
-        Button(onClick = {
-            Toast.makeText(context, "isAvailable: ${manager.isAvailable()}", Toast.LENGTH_SHORT).show()
-        }) {
-            Text(text = "Check esim available")
-        }
-
-        Button(onClick = {
-            openQr()
-        }) {
-            Text(text = "open qr")
-        }
-
         Button(onClick = {
             runCatching {
-                downloadSim(TEST_SIM_PROFILE)
+                if (ActivityCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
+                    ActivityCompat.requestPermissions(context as Activity, arrayOf(Manifest.permission.READ_PHONE_STATE), 200)
+                } else {
+                    if (manager.isAvailable()) {
+                        manager.downloadEsim(activationCode = TEST_SIM_PROFILE)
+                    }
+                }
             }.getOrElse {
                 Toast.makeText(context, "Error: ${it.message}", Toast.LENGTH_SHORT).show()
             }
-        }) {
-            Text(text = "Download ESIM1")
+        }, modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp)) {
+            Text(text = "Direct activation E-SIM", textAlign = TextAlign.Center)
         }
-
 
         Button(onClick = {
             runCatching {
                 val sb = StringBuilder()
-                manager.listOfEsimProfiles().map { "${it.label} - ${it.displayName} - ${it.id}" }
+                manager.listOfEsimProfiles().map {
+                    "SubscriptionId : ${it?.subscriptionId}\n" +
+                            "mcc : ${it?.mcc}\n" +
+                            "mnc : ${it?.mnc}\n" +
+                            "numeric: ${it?.numeric}\n"
+                    "--------------------\n"
+                }
                     .forEach {
                         sb.append(it).append("\n")
                     }
-                Toast.makeText(context, sb.toString(), Toast.LENGTH_LONG).show()
+                esimList = sb.toString()
 
             }.getOrElse {
                 Toast.makeText(context, "Error: ${it.message}", Toast.LENGTH_SHORT).show()
             }
         }) {
-            Text(text = "Display List Of Esim")
+            Text(text = "Display List E-SIM")
         }
 
+        Text(text = esimList, modifier = Modifier.padding(vertical = 16.dp))
 
-        Button(onClick = {
-            runCatching {
-                val subscriptionManager = context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as SubscriptionManager?
-                if (ActivityCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
-                    ActivityCompat.requestPermissions(context as Activity, arrayOf(Manifest.permission.READ_PHONE_STATE), 11)
-
-                }
-                val subscriptions = subscriptionManager?.activeSubscriptionInfoList
-                println(subscriptions?.map { it.displayName })
-
-
-                val telephone = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager?
-                telephone?.apply {
-                    Toast.makeText(context, telephone.networkOperatorName, Toast.LENGTH_SHORT).show()
-                }
-
-                val intent = Intent(Settings.ACTION_NETWORK_OPERATOR_SETTINGS)
-                context.startActivity(intent)
-
-
-            }.getOrElse {
-                Toast.makeText(context, "Error: ${it.message}", Toast.LENGTH_SHORT).show()
-            }
-        }) {
-            Text(text = "Open sim manager")
-        }
-
-        Button(onClick = {
-            runCatching {
-                val intent = Intent(Intent.ACTION_MAIN)
-                intent.setClassName("com.android.phone", "com.android.phone.settings.eSimManager")
-                context.startActivity(intent)
-
-            }.getOrElse {
-                Toast.makeText(context, "Error: ${it.message}", Toast.LENGTH_SHORT).show()
-            }
-        }) {
-            Text(text = "open eSim Manager")
-        }
     }
 }
 
