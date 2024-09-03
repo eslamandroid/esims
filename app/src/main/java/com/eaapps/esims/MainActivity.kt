@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -46,6 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -54,7 +56,7 @@ import androidx.core.content.ContextCompat
 import com.eaapps.esims.ui.theme.EsimsTheme
 
 
-private const val TEST_SIM_PROFILE = "LPA:1\$smdp.io\$57-261HY0-Y19OZV"
+private const val TEST_SIM_PROFILE = "LPA:1\$smdp.io\$57-262E95-176EZGS"
 
 private const val START_RESOLUTION_ACTION = "start_resolution_action"
 private const val BROADCAST_PERMISSION = "com.eaapps.esims.lpa.permission.BROADCAST"
@@ -212,6 +214,9 @@ fun EsimView(context: Context, modifier: Modifier) {
     }
 
     Column(verticalArrangement = Arrangement.Center, horizontalAlignment = CenterHorizontally, modifier = modifier.fillMaxSize()) {
+
+        Text(text = "Globee Test Direct Installation", modifier = Modifier.padding(vertical = 24.dp), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        
         Button(onClick = {
             Toast.makeText(
                 context,
