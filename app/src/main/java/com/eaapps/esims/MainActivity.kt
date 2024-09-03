@@ -22,6 +22,7 @@ import android.telephony.euicc.EuiccManager.EXTRA_EMBEDDED_SUBSCRIPTION_ERROR_CO
 import android.telephony.euicc.EuiccManager.EXTRA_EMBEDDED_SUBSCRIPTION_OPERATION_CODE
 import android.telephony.euicc.EuiccManager.EXTRA_EMBEDDED_SUBSCRIPTION_SMDX_REASON_CODE
 import android.telephony.euicc.EuiccManager.EXTRA_EMBEDDED_SUBSCRIPTION_SMDX_SUBJECT_CODE
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -144,6 +145,13 @@ class MainActivity : ComponentActivity() {
                     0 /* defaultValue*/
                 )
 
+            Log.d("E_SIM", "Result Code: $resultCode \n" +
+                    "Error Code: $errorCode\n" +
+                    " Operation Code: $operationCode \n" +
+                    " Detailed Code: $detailedCode \n" +
+                    " Subject Code: $subjectCode \n" +
+                    " Reason Code: $reasonCode")
+
             // Helps for debugging if there is an issue with the e-sim
             Toast.makeText(
                 context,
@@ -183,7 +191,7 @@ class MainActivity : ComponentActivity() {
             this@MainActivity,
             eSimBroadcastReceiver,
             IntentFilter(DOWNLOAD_ACTION),
-            null,
+            BROADCAST_PERMISSION,
             null,
             ContextCompat.RECEIVER_EXPORTED
         )
@@ -191,7 +199,7 @@ class MainActivity : ComponentActivity() {
             this@MainActivity,
             resolutionReceiver,
             IntentFilter(START_RESOLUTION_ACTION),
-            null,
+            BROADCAST_PERMISSION,
             null,
             ContextCompat.RECEIVER_EXPORTED
         )

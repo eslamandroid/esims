@@ -46,7 +46,7 @@ class EsimManager(private val context: Context) {
             return if (profiles != null && profiles.isNotEmpty()) {
                 profiles.mapIndexed { index, subscriptionInfo ->
                     if (subscriptionInfo.isEmbedded) {
-                        val displayName = subscriptionInfo.displayName.toString()
+                        val displayName = subscriptionInfo.carrierName.toString()
                         val subscriptionId = subscriptionInfo.subscriptionId
                         val mcc = subscriptionInfo.mccString
                         val mnc = subscriptionInfo.mncString
