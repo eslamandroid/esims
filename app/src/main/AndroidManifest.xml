@@ -13,6 +13,9 @@
     <permission android:name="com.eaapps.esims.lpa.permission.BROADCAST" android:protectionLevel="signature"/>
     <uses-permission android:name="com.eaapps.esims.lpa.permission.BROADCAST"/>
     <uses-permission android:name="android.permission.WRITE_EMBEDDED_SUBSCRIPTIONS" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.READ_PRIVILEGED_PHONE_STATE"
+        tools:ignore="ProtectedPermissions" />
+
 
     <application
         android:allowBackup="true"
@@ -35,6 +38,15 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".CarrierEuiccProvisioningService"
+            android:exported="true"
+            android:permission="android.permission.WRITE_EMBEDDED_SUBSCRIPTIONS">
+            <intent-filter>
+                <action android:name="android.service.euicc.action.BIND_CARRIER_PROVISIONING_SERVICE"/>
+            </intent-filter>
+        </service>
 
     </application>
 

@@ -5,14 +5,19 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.IntentSender
+import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.IBinder
 import android.provider.Settings
+import android.service.euicc.ICarrierEuiccProvisioningService
+import android.service.euicc.IGetActivationCodeCallback
 import android.telephony.SubscriptionManager
 import android.telephony.TelephonyManager
 import android.telephony.euicc.DownloadableSubscription
@@ -56,6 +61,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.eaapps.esims.ui.theme.EsimsTheme
 
+//https://github.com/odemolliens/react-native-sim-cards-manager/tree/develop
 
 private const val TEST_SIM_PROFILE = "LPA:1\$smdp.io\$57-262E95-176EZGS"
 
@@ -145,12 +151,14 @@ class MainActivity : ComponentActivity() {
                     0 /* defaultValue*/
                 )
 
-            Log.d("E_SIM", "Result Code: $resultCode \n" +
-                    "Error Code: $errorCode\n" +
-                    " Operation Code: $operationCode \n" +
-                    " Detailed Code: $detailedCode \n" +
-                    " Subject Code: $subjectCode \n" +
-                    " Reason Code: $reasonCode")
+            Log.d(
+                "E_SIM", "Result Code: $resultCode \n" +
+                        "Error Code: $errorCode\n" +
+                        " Operation Code: $operationCode \n" +
+                        " Detailed Code: $detailedCode \n" +
+                        " Subject Code: $subjectCode \n" +
+                        " Reason Code: $reasonCode"
+            )
 
             // Helps for debugging if there is an issue with the e-sim
             Toast.makeText(
@@ -178,7 +186,7 @@ class MainActivity : ComponentActivity() {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     EsimView(
                         context = context,
-                        modifier = Modifier.padding(innerPadding)
+                        modifier = Modifier.padding(innerPadding), onBind = { bindS() }
                     )
                 }
             }
@@ -211,11 +219,42 @@ class MainActivity : ComponentActivity() {
         unregisterReceiver(resolutionReceiver)
     }
 
+    private var provisioningService: ICarrierEuiccProvisioningService? = null
+
+    fun bindS() {
+        val serviceConnection = object : ServiceConnection {
+            override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+                // Cast the binder to our service's AIDL interface
+                provisioningService = ICarrierEuiccProvisioningService.Stub.asInterface(service)
+
+                // Call the service method to get an activation code
+                provisioningService?.getActivationCode(object : IGetActivationCodeCallback.Stub() {
+                    override fun onSuccess(activationCode: String?) {
+                        Toast.makeText(this@MainActivity, "Activation code received: $activationCode", Toast.LENGTH_SHORT).show()
+                    }
+
+                    override fun onFailure() {
+                        Toast.makeText(this@MainActivity, "Failed to get activation code", Toast.LENGTH_SHORT).show()
+                    }
+                })
+            }
+
+            override fun onServiceDisconnected(name: ComponentName?) {
+                provisioningService = null
+                Log.d("MainActivity", "Service disconnected")
+            }
+        }
+
+        val intent = Intent(this, CarrierEuiccProvisioningService::class.java)
+        bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+    }
+
+
 }
 
 @SuppressLint("ServiceCast")
 @Composable
-fun EsimView(context: Context, modifier: Modifier) {
+fun EsimView(context: Context, modifier: Modifier, onBind: () -> Unit = {}) {
     val manager = EsimManager(context)
     var esimList by remember {
         mutableStateOf("")
@@ -223,8 +262,13 @@ fun EsimView(context: Context, modifier: Modifier) {
 
     Column(verticalArrangement = Arrangement.Center, horizontalAlignment = CenterHorizontally, modifier = modifier.fillMaxSize()) {
 
-        Text(text = "Globee Test Direct Installation", modifier = Modifier.padding(vertical = 24.dp), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        
+        Text(
+            text = "Globee Test Direct Installation",
+            modifier = Modifier.padding(vertical = 24.dp),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
+        )
+
         Button(onClick = {
             Toast.makeText(
                 context,
@@ -252,8 +296,18 @@ fun EsimView(context: Context, modifier: Modifier) {
 
         Button(onClick = {
             runCatching {
+               onBind()
+            }.getOrElse {
+                Toast.makeText(context, "Error: ${it.message}", Toast.LENGTH_SHORT).show()
+            }
+        }, modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp)) {
+            Text(text = "Direct activation E-SIM2", textAlign = TextAlign.Center)
+        }
+
+        Button(onClick = {
+            runCatching {
                 val sb = StringBuilder()
-                manager.listOfEsimProfiles().map {
+                manager.listOfEsimProfiles().dropWhile { it == null }.map {
                     "SubscriptionId : ${it?.subscriptionId}\n" +
                             "mcc : ${it?.mcc}\n" +
                             "mnc : ${it?.mnc}\n" +

@@ -12,7 +12,7 @@ import android.telephony.euicc.DownloadableSubscription
 import android.telephony.euicc.EuiccManager
 
 
-data class Profile(val subscriptionId:Int,val name: String, val apn: String, val mcc: String, val mnc: String, val numeric: String)
+data class Profile(val subscriptionId: Int, val name: String, val apn: String, val mcc: String, val mnc: String, val numeric: String)
 
 const val DOWNLOAD_ACTION = "download_subscription"
 
@@ -44,13 +44,20 @@ class EsimManager(private val context: Context) {
         if (euiccManager != null && subscriptionManager != null) {
             val profiles = subscriptionManager.activeSubscriptionInfoList
             return if (profiles != null && profiles.isNotEmpty()) {
-                profiles.mapIndexed { index, subscriptionInfo ->
+                profiles.map { subscriptionInfo ->
                     if (subscriptionInfo.isEmbedded) {
                         val displayName = subscriptionInfo.carrierName.toString()
                         val subscriptionId = subscriptionInfo.subscriptionId
                         val mcc = subscriptionInfo.mccString
                         val mnc = subscriptionInfo.mncString
-                        Profile(subscriptionId = subscriptionId,name = displayName, apn = "", mcc = mcc ?: "-", mnc = mnc ?: "-", numeric = mcc + mnc)
+                        Profile(
+                            subscriptionId = subscriptionId,
+                            name = displayName,
+                            apn = "",
+                            mcc = mcc ?: "-",
+                            mnc = mnc ?: "-",
+                            numeric = mcc + mnc
+                        )
                     } else {
                         null
                     }
